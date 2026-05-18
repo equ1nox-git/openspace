@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+OpenSpace API with master delegator and auto-fallback.
+Master uses phi3:mini to classify intent into: coder, reason, or tiny.
+Then calls the appropriate subagent with fallback chains.
+"""
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import subprocess
+
+app = FastAPI()
+
+FALLBACKS = {
+    "tiny":   ["phi3:mini"],
+    "coder":  ["deepseek-coder:6.7b", "qwen2.5-coder:7b", "phi3:mini"],
+    "reason": ["gemma2:9b", "mistral:7b", "phi3:mini"],
+    "voice":  ["phi3:mini"],
+}
+
+ROLE_MAP = {
+    "phi3:mini":           "tiny",
+    "tiny":                "tiny",
+    "mistral:7b":          "reason",
+    "reason":              "reason",
+    "qwen2.5-coder:7b":   "coder",
+    "deepseek-coder:6.7b": "coder",
+    "coder":               "coder",
+    "gemma2:9b":           "reason",
+    "llama3.2:latest":     "voice",
+    "voice":               "voice",
+    "master":              "master",
+}
+
+ALL_MODELS = list(dict.fromkeys(
+    ["tiny", "coder", "reason", "voice", "master"] + list(ROLE_MAP.keys())
+))
+
+
+class ChatRequest(BaseModel):
+    model: str = "tiny"
+    messages: list
+    stream: bool = False
+
+
+class OllamaGenerateRequest(BaseModel):
+    model: str = "tiny"
+    prompt: str = ""
+    stream: bool = False
+
+
+def call_model(model_name: str, prompt: str):
+    """Call ollama model directly. Returns (answer, error)."""
+    try:
+        result = subprocess.run(
+            ["ollama", "run", model_name, prompt],
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        out = result.stdout.strip()
+        if result.returncode == 0 and out:
+            return out, None
+        return None, result.stderr or "empty response"
+    except subprocess.TimeoutExpired:
+        return None, "timeout"
+    except Exception as e:
+        return None, str(e)
+
+
+def classify_intent(prompt: str) -> str:
+    """phi3:mini classifies prompt → coder | reason | tiny."""
+    classifier_prompt = (
+        "Analyze the user's request and output exactly one word: "
+        "'coder' if they ask for code, programming, or debugging; "
+        "'reason' if they ask for explanation, analysis, or step-by-step reasoning; "
+        "'tiny' for anything else. "
+        "Output only the word, nothing else.\n\n"
+        f"Request: {prompt}\nIntent:"
+    )
+    answer, _ = call_model("phi3:mini", classifier_prompt)
+    if not answer:
+        return "tiny"
+    intent = answer.strip().lower().split()[0]
+    return intent if intent in ("coder", "reason", "tiny") else "tiny"
+
+
+def run_subagent(role: str, prompt: str) -> str:
+    """Try fallback chain for role. Raises HTTPException if all fail."""
+    models = FALLBACKS.get(role, FALLBACKS["tiny"])
+    last_error = None
+    for model in models:
+        answer, err = call_model(model, prompt)
+        if answer:
+            return answer
+        last_error = err
+    raise HTTPException(status_code=500, detail=f"All models failed for '{role}': {last_error}")
+
+
+# --- OpenAI-compatible endpoints ---
+
+@app.get("/v1/models")
+async def list_models_openai():
+    return {
+        "object": "list",
+        "data": [{"id": m, "object": "model"} for m in ["tiny", "coder", "reason", "voice", "master"]],
+    }
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(request: ChatRequest):
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="No messages")
+    user_content = request.messages[-1].get("content", "")
+    role = ROLE_MAP.get(request.model, "tiny")
+
+    if role == "master":
+        intent = classify_intent(user_content)
+        answer = run_subagent(intent, user_content)
+    else:
+        answer = run_subagent(role, user_content)
+
+    return {
+        "id": "chatcmpl-openspace",
+        "object": "chat.completion",
+        "model": request.model,
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": answer}, "finish_reason": "stop"}],
+    }
+
+
+# --- Ollama-compatible endpoints (Open WebUI uses these) ---
+
+@app.get("/api/tags")
+async def ollama_tags():
+    return {
+        "models": [
+            {"name": m, "model": m, "modified_at": "2026-01-01T00:00:00Z", "size": 0, "digest": m}
+            for m in ["tiny", "coder", "reason", "voice", "master"]
+        ]
+    }
+
+
+@app.post("/api/generate")
+async def ollama_generate(request: OllamaGenerateRequest):
+    role = ROLE_MAP.get(request.model, "tiny")
+    if role == "master":
+        intent = classify_intent(request.prompt)
+        answer = run_subagent(intent, request.prompt)
+    else:
+        answer = run_subagent(role, request.prompt)
+    return {"model": request.model, "response": answer, "done": True}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=11435)

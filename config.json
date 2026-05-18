@@ -1,0 +1,46 @@
+{
+  "models": [
+    {
+      "name": "tiny",
+      "provider": "tiny",
+      "ram_mb": 200,
+      "role": "general",
+      "model_name": "phi3:mini"
+    },
+    {
+      "name": "coder",
+      "provider": "ollama",
+      "ram_mb": 400,
+      "role": "coding",
+      "model_name": "qwen2.5:7b"
+    },
+    {
+      "name": "reasoner",
+      "provider": "ollama",
+      "ram_mb": 600,
+      "role": "reasoning",
+      "model_name": "mistral:latest"
+    },
+    {
+      "name": "voice",
+      "provider": "ollama",
+      "ram_mb": 300,
+      "role": "audio",
+      "model_name": "llama3.2:latest"
+    },
+    {
+      "name": "mlx",
+      "provider": "mlx",
+      "ram_mb": 500,
+      "role": "general",
+      "model_name": "phi3-mlx"
+    },
+    {
+      "name": "llamacpp",
+      "provider": "llamacpp",
+      "ram_mb": 800,
+      "role": "general",
+      "model_name": "mistral-7b"
+    }
+  ]
+}

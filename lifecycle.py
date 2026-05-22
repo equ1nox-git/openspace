@@ -8,7 +8,7 @@ _loaded_models = set()
 MODEL_RAM_COST = {
     "tiny": 800,
     "coder": 1600,
-    "reasoner": 2200,
+    "reason": 2200,
     "voice": 1200,
 }
 

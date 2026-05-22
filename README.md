@@ -97,6 +97,8 @@ All settings via environment variables or a `.env` file:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama backend address |
+| `OPENSPACE_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` to expose on LAN) |
+| `OPENSPACE_PORT` | `11435` | Listen port |
 | `PROMPTS_DIR` | `./prompts` | Directory for prompt files |
 
 **Model config** — edit `config.json` to change which models back each role:
@@ -148,11 +150,23 @@ All prompt files are optional. If absent, requests are handled with a minimal de
 
 ---
 
+## CLI mode
+
+`router.py` is a standalone interactive CLI — useful for local testing without running the API server:
+
+```bash
+python3 router.py
+```
+
+Type `/coder`, `/reason`, `/tiny`, or `/voice` to route directly to a role. Type `/exit` to quit.
+
+---
+
 ## Requirements
 
 - Python 3.10+
 - [Ollama](https://ollama.ai) running on `localhost:11434`
-- `psutil` for RAM-aware lifecycle management
+- Dependencies: `pip install -r requirements.txt`
 
 ---
 

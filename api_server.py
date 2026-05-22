@@ -12,6 +12,9 @@ import os
 
 app = FastAPI()
 
+OLLAMA_URL  = os.environ.get("OLLAMA_URL",      "http://localhost:11434")
+HOST        = os.environ.get("OPENSPACE_HOST",   "127.0.0.1")
+PORT        = int(os.environ.get("OPENSPACE_PORT", 11435))
 PROMPTS_DIR = os.environ.get("PROMPTS_DIR", os.path.join(os.path.dirname(__file__), "prompts"))
 
 def _read_prompt(name: str, fallback: str = "") -> str:
@@ -64,7 +67,7 @@ LARGE_CONTEXT_MODELS = {"gemma2:9b", "mistral:7b"}
 def call_ollama_api(model: str, user_prompt: str, system: str = None, timeout: int = 180) -> str:
     """Call Ollama's generate endpoint.
     Large-context models get FULL_SYSTEM; small models get SYSTEM_PROMPT only."""
-    url = "http://localhost:11434/api/generate"
+    url = f"{OLLAMA_URL}/api/generate"
     if system is None:
         system = FULL_SYSTEM if model in LARGE_CONTEXT_MODELS else SYSTEM_PROMPT
     payload = {
@@ -160,7 +163,7 @@ async def ollama_generate(request: dict):
     prompt = request.get("prompt", "")
     role = ROLE_MAP.get(model, "tiny")
     if role == "master":
-        user_content = REASON_CONTEXT_HEADER + user_content
+        prompt = REASON_CONTEXT_HEADER + prompt
         intent = classify_intent(prompt)
         answer = call_subagent(intent, prompt)
     else:
@@ -169,4 +172,4 @@ async def ollama_generate(request: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=11435)
+    uvicorn.run(app, host=HOST, port=PORT)

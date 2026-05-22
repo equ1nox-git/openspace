@@ -15,7 +15,7 @@
       "model_name": "qwen2.5:7b"
     },
     {
-      "name": "reasoner",
+      "name": "reason",
       "provider": "ollama",
       "ram_mb": 600,
       "role": "reasoning",

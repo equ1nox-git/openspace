@@ -5,3 +5,7 @@ __pycache__/
 *.bak2
 *.bak4
 code
+prompts/master_context.md
+prompts/custom_instructions.md
+.env
+*.env

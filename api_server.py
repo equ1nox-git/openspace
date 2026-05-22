@@ -32,14 +32,14 @@ FULL_SYSTEM = f"{SYSTEM_PROMPT}\n\n# Personal Context\n{MASTER_CONTEXT}"
 
 # Fallback chains for each subagent
 FALLBACKS = {
-    "tiny": ["phi3:mini"],
-    "coder": ["deepseek-coder:6.7b", "qwen2.5-coder:7b", "phi3:mini"],
-    "reason": ["phi3:mini", "gemma2:9b", "mistral:7b"],
-    "voice": ["phi3:mini"]
+    "tiny": ["phi3:8k"],
+    "coder": ["deepseek-coder:6.7b", "qwen2.5-coder:7b", "phi3:8k"],
+    "reason": ["phi3:8k", "gemma2:9b", "mistral:7b"],
+    "voice": ["phi3:8k"]
 }
 
 ROLE_MAP = {
-    "phi3:mini": "tiny",
+    "phi3:8k": "tiny",
     "tiny": "tiny",
     "mistral:7b": "reason",
     "reason": "reason",
@@ -49,7 +49,7 @@ ROLE_MAP = {
     "gemma2:9b": "reason",
     "llama3.2:latest": "voice",
     "voice": "voice",
-    "master": "master"
+    "nova": "master"
 }
 
 class ChatRequest(BaseModel):
@@ -82,7 +82,7 @@ def call_ollama_api(model: str, user_prompt: str, system: str = None, timeout: i
         return None
 
 def classify_intent(prompt: str) -> str:
-    """Use phi3:mini to classify intent (coder, reason, tiny). No master context injected."""
+    """Use phi3:8k to classify intent (coder, reason, tiny). No master context injected."""
     classifier_system = (
         "You are a request classifier. Output exactly one word only: "
         "'coder', 'reason', or 'tiny'. No other output."
@@ -92,7 +92,7 @@ def classify_intent(prompt: str) -> str:
         "Output exactly one word — 'coder' (code/programming/debugging), "
         "'reason' (explanation/analysis/step-by-step), or 'tiny' (anything else):"
     )
-    resp = call_ollama_api("phi3:mini", classifier_prompt, system=classifier_system, timeout=45)
+    resp = call_ollama_api("phi3:8k", classifier_prompt, system=classifier_system, timeout=45)
     if not resp:
         return "tiny"
     intent = resp.strip().lower().split()[0]
@@ -100,7 +100,7 @@ def classify_intent(prompt: str) -> str:
 
 def call_subagent(role: str, prompt: str) -> str:
     """Call subagent with fallback chain. Reason role prepends context header for small-model fallbacks."""
-    models = FALLBACKS.get(role, ["phi3:mini"])
+    models = FALLBACKS.get(role, ["phi3:8k"])
     for model in models:
         effective_prompt = prompt
         if role == "reason" and model not in LARGE_CONTEXT_MODELS:
@@ -118,6 +118,7 @@ async def chat_completions(request: ChatRequest):
 
     role = ROLE_MAP.get(request.model, "tiny")
     if role == "master":
+        user_content = REASON_CONTEXT_HEADER + user_content
         intent = classify_intent(user_content)
         answer = call_subagent(intent, user_content)
     else:
@@ -138,7 +139,7 @@ async def list_models():
             {"id": "coder", "object": "model"},
             {"id": "reason", "object": "model"},
             {"id": "voice", "object": "model"},
-            {"id": "master", "object": "model"},
+            {"id": "nova", "object": "model"},
         ]
     }
 
@@ -147,7 +148,7 @@ async def ollama_tags():
     return {
         "models": [
             {"name": m, "model": m, "modified_at": "2026-01-01T00:00:00Z", "size": 0, "digest": m}
-            for m in ["tiny", "coder", "reason", "voice", "master"]
+            for m in ["tiny", "coder", "reason", "voice", "nova"]
         ]
     }
 
@@ -157,6 +158,7 @@ async def ollama_generate(request: dict):
     prompt = request.get("prompt", "")
     role = ROLE_MAP.get(model, "tiny")
     if role == "master":
+        user_content = REASON_CONTEXT_HEADER + user_content
         intent = classify_intent(prompt)
         answer = call_subagent(intent, prompt)
     else:

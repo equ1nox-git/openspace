@@ -43,7 +43,7 @@ def main():
     models = {m["name"]: m for m in config["models"]}
     orchestrator = PromptOrchestrator(models)      # ← ADDED
 
-    log("OpenClaw Router Ready. Type /exit to quit.")
+    log("OpenSpace Router Ready. Type /exit to quit.")
 
     current_provider = None
     memory = MemoryBuffer()

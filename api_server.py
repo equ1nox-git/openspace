@@ -12,23 +12,25 @@ import os
 
 app = FastAPI()
 
-# Load prompt files once at startup
-PROMPTS_DIR = "/home/thomasb/openspace/prompts"
-with open(f"{PROMPTS_DIR}/master_context.md", "r") as f:
-    MASTER_CONTEXT = f.read()
-with open(f"{PROMPTS_DIR}/system_prompt.md", "r") as f:
-    SYSTEM_PROMPT = f.read()
+PROMPTS_DIR = os.environ.get("PROMPTS_DIR", os.path.join(os.path.dirname(__file__), "prompts"))
 
-# Condensed personal context header for reason-role calls (keeps tokens manageable)
-REASON_CONTEXT_HEADER = (
-    "User context: Thomas Brown, 26, Wichita KS. "
-    "CS student (Butler CC → WSU). DevOps/cloud infra career target. "
-    "Calisthenics athlete. ADD traits. Multimodal learner. "
-    "Full profile available in master_context.md.\n\n"
-)
+def _read_prompt(name: str, fallback: str = "") -> str:
+    path = os.path.join(PROMPTS_DIR, name)
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read()
+    return fallback
+
+MASTER_CONTEXT = _read_prompt("master_context.md")
+SYSTEM_PROMPT  = _read_prompt("system_prompt.md", "You are a helpful local AI assistant.")
+
+# Condensed context header for small models — token-efficient summary of master_context
+REASON_CONTEXT_HEADER = _read_prompt("context_header.md", "")
+if REASON_CONTEXT_HEADER:
+    REASON_CONTEXT_HEADER += "\n\n"
 
 # Full combined context — only safe for large-context models (gemma2:9b, mistral:7b)
-FULL_SYSTEM = f"{SYSTEM_PROMPT}\n\n# Personal Context\n{MASTER_CONTEXT}"
+FULL_SYSTEM = f"{SYSTEM_PROMPT}\n\n# Personal Context\n{MASTER_CONTEXT}" if MASTER_CONTEXT else SYSTEM_PROMPT
 
 # Fallback chains for each subagent
 FALLBACKS = {

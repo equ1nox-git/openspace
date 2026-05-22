@@ -39,7 +39,7 @@ class PromptOrchestrator:
         - user input
         """
         system = (
-            "You are OpenClaw, a local AI assistant. "
+            "You are OpenSpace, a local AI assistant. "
             "Be concise, helpful, and avoid hallucinations."
         )
 

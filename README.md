@@ -4,6 +4,12 @@ A self-hosted local AI router that classifies intent, delegates to specialized s
 
 Rather than sending every request to a single model, OpenSpace routes each request to the right tool: a coder model for programming tasks, a reasoning model for analysis, a lightweight model for everything else. If a model fails or is unavailable, it falls back through a defined chain automatically.
 
+## Why I built this
+
+Running multiple local models (a fast small one, a slower reasoning one, a coding-specific one) means you're constantly choosing which model to ask. The fast model is bad at code. The coding model is slow for simple questions. I wanted to stop choosing manually.
+
+OpenSpace adds a lightweight classifier in front: it reads the request, decides what kind of task it is, and routes to the right model without any input from me. If that model is unavailable or fails, it tries the next one. If available RAM would be exceeded loading a model, the request fails cleanly instead of crashing the machine — something I learned the hard way.
+
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/framework-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
